@@ -1,0 +1,768 @@
+<title>Combustible ESP vs PCP v2</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Saira+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;500;600&display=swap">
+<style>
+/* Composición: datos a la izquierda y resultados a la derecha; en teléfono una sola columna con barra de resultado fija arriba.
+   ESP = azul, PCP = naranja; todo lo demás va en grises fríos. */
+:root{
+  --bg:#EDF0F2; --surface:#FFFFFF; --surface2:#E3E8EB; --ink:#10202B; --ink2:#4F5F6B; --line:#C9D1D7;
+  --esp:#2457D6; --pcp:#B85600; --on-sys:#FFFFFF;
+  --seg-elec:#AAB6BE; --seg-gen:#64737E; --on-gen:#FFFFFF; --seg-oth:#D6DCE1;
+  --f-display:"Saira Condensed","Arial Narrow",sans-serif;
+  --f-body:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-data:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1317; --surface:#151F26; --surface2:#1C2A33; --ink:#E7EDF0; --ink2:#9DAFBA; --line:#2A3944;
+    --esp:#7C9DFF; --pcp:#F79D4E; --on-sys:#0D1317;
+    --seg-elec:#475763; --seg-gen:#8798A4; --on-gen:#0D1317; --seg-oth:#2B3943;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1317; --surface:#151F26; --surface2:#1C2A33; --ink:#E7EDF0; --ink2:#9DAFBA; --line:#2A3944;
+  --esp:#7C9DFF; --pcp:#F79D4E; --on-sys:#0D1317;
+  --seg-elec:#475763; --seg-gen:#8798A4; --on-gen:#0D1317; --seg-oth:#2B3943;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font:400 15px/1.45 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:12px 56px;
+}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:10}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+button{font:inherit;color:inherit}
+h1,h2,h3{margin:0;font-family:var(--f-display);font-weight:600;letter-spacing:.01em;text-wrap:balance}
+small,.u{color:var(--ink2)}
+
+/* barra fija (teléfono) */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:center;
+  background:var(--bg);border-bottom:1px solid var(--line);padding:8px 0;margin-bottom:12px}
+.bar-cell{display:flex;align-items:baseline;gap:6px;min-width:0;white-space:nowrap}
+.bar-cell b{font:600 18px/1 var(--f-data);font-variant-numeric:tabular-nums}
+.bar-k{font:600 12px var(--f-display);letter-spacing:.06em}
+.bar-cell .u{font-size:11px}
+.bar-delta{font:600 15px var(--f-data);font-variant-numeric:tabular-nums;white-space:nowrap}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:baseline}
+.dot.esp{background:var(--esp)} .dot.pcp{background:var(--pcp)}
+.esp-t{color:var(--esp)} .pcp-t{color:var(--pcp)}
+
+.layout{display:grid;gap:16px;max-width:1180px;margin:0 auto}
+.head h1{font-size:32px;line-height:1.05;font-weight:700}
+.head p{margin:6px 0 12px;color:var(--ink2);max-width:60ch}
+.presets{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;line-height:1.2}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px;min-width:0}
+.card h2{font-size:20px;margin-bottom:4px}
+.card .sub{color:var(--ink2);font-size:13px;margin:0 0 10px}
+
+/* veredicto */
+.verdict{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;min-width:0}
+.v-kicker{font:600 12px var(--f-display);letter-spacing:.1em;text-transform:uppercase;color:var(--ink2)}
+.v-head{font:700 28px/1.1 var(--f-display);margin:4px 0 12px;text-wrap:balance}
+.v-nums{display:flex;flex-wrap:wrap;gap:6px 22px;align-items:baseline}
+.v-nums .big{font:600 40px/1 var(--f-data);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.v-nums .mid{font:600 22px/1 var(--f-data);font-variant-numeric:tabular-nums}
+.v-nums span.l{color:var(--ink2);font-size:13px;margin-left:6px}
+.chips{display:flex;flex-direction:column;gap:6px;margin-top:14px}
+.warn{font-size:13px;line-height:1.35;padding:6px 9px;border:1px solid var(--line);border-radius:4px;background:var(--surface2);display:flex;gap:6px}
+
+/* entradas */
+details.grp{background:var(--surface);border:1px solid var(--line);border-radius:6px;margin-bottom:10px;min-width:0}
+details.grp>summary{list-style:none;cursor:pointer;padding:13px 14px;display:flex;justify-content:space-between;align-items:baseline;gap:10px;font:600 19px var(--f-display);letter-spacing:.01em}
+details.grp>summary::-webkit-details-marker{display:none}
+details.grp>summary::after{content:"+";font:500 20px var(--f-data);color:var(--ink2)}
+details.grp[open]>summary::after{content:"–"}
+details.grp>summary .sub{font:400 12px var(--f-body);color:var(--ink2);margin-left:auto}
+.grp-body{padding:0 14px 8px}
+.field{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:12px;row-gap:2px;padding:9px 0;border-top:1px solid var(--line)}
+.field label{font-size:14px}
+.num{display:flex;align-items:baseline;gap:5px}
+.num input{width:84px;background:var(--surface2);border:1px solid var(--line);border-radius:4px;color:var(--ink);font:500 14px var(--f-data);text-align:right;padding:5px 7px;-moz-appearance:textfield;font-variant-numeric:tabular-nums}
+.num input::-webkit-outer-spin-button,.num input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.num .u{font-size:12px;min-width:34px}
+.rng{grid-column:1/-1;width:100%;height:26px;margin:0;accent-color:var(--ink)}
+.ctl-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:9px 0;border-top:1px solid var(--line)}
+.ctl-row:first-child{border-top:0}
+.ctl-l{font-size:14px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:6px 12px;font-size:13px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:5px;padding:8px 14px;font-size:14px;cursor:pointer}
+.btn.pri{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+#copy-box{width:100%;margin-top:8px;min-height:120px;font:12px var(--f-data);background:var(--surface2);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:8px}
+
+/* tabla */
+.tbl{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:7px 5px;text-align:right;border-top:1px solid var(--line);white-space:nowrap}
+th{border-top:0;font:600 13px var(--f-display);letter-spacing:.06em}
+th:first-child,td:first-child{text-align:left;padding-left:0;white-space:normal}
+td.n{font:400 13px var(--f-data);font-variant-numeric:tabular-nums}
+td small{display:block;font-size:11px}
+tr.key td{font-weight:600;background:var(--surface2)}
+tr.key td:first-child{padding-left:6px}
+
+/* barras de energía */
+.eb{margin:12px 0}
+.eb-h{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 10px;font-size:13px;margin-bottom:4px}
+.eb-h b{font-family:var(--f-display);font-size:15px;letter-spacing:.06em}
+.eb-bar{display:flex;height:34px;border-radius:3px;overflow:hidden;background:var(--surface2)}
+.seg-b{display:flex;align-items:center;justify-content:center;font:500 11px var(--f-data);overflow:hidden;white-space:nowrap;min-width:0}
+.s-useful{background:var(--sys);color:var(--on-sys)}
+.s-pump{background:color-mix(in srgb,var(--sys) 38%,var(--surface));color:var(--ink)}
+.s-sys{background:var(--seg-elec);color:var(--ink)}
+.s-gen{background:var(--seg-gen);color:var(--on-gen)}
+.s-oth{background:var(--seg-oth);color:var(--ink)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--ink2);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;margin-right:5px;border-radius:2px;vertical-align:-1px}
+
+/* curva */
+.sw-top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.readout{display:flex;flex-wrap:wrap;gap:2px 14px;font:400 12px var(--f-data);min-height:20px;align-items:baseline}
+.readout b{font-weight:600}
+#sweep{position:relative;touch-action:pan-y;cursor:crosshair}
+#sweep svg{display:block;width:100%;height:auto}
+.gl{stroke:var(--line);stroke-width:1}
+.ax text{fill:var(--ink2);font:11px var(--f-data)}
+.ln-esp{stroke:var(--esp);fill:none;stroke-width:2.5;stroke-linejoin:round}
+.ln-pcp{stroke:var(--pcp);fill:none;stroke-width:2.5;stroke-linejoin:round}
+.cur{stroke:var(--ink2);stroke-width:1;stroke-dasharray:3 3}
+.hv{stroke:var(--ink);stroke-width:1}
+.pt-esp{fill:var(--esp);stroke:var(--surface);stroke-width:2}
+.pt-pcp{fill:var(--pcp);stroke:var(--surface);stroke-width:2}
+.tx-esp{fill:var(--esp);font:600 12px var(--f-display);letter-spacing:.05em}
+.tx-pcp{fill:var(--pcp);font:600 12px var(--f-display);letter-spacing:.05em}
+.cap{font-size:12px;color:var(--ink2);margin:8px 0 0}
+.notes{font-size:13px;color:var(--ink2)}
+.notes ul{margin:6px 0 0;padding-left:18px}
+.notes li{margin:3px 0}
+
+#verdict{order:1} #inputs{order:2} #table{order:3} #charts{order:4} #notes{order:5}
+#charts{display:grid;gap:16px}
+
+@media (min-width:920px){
+  .bar{display:none}
+  .layout{grid-template-columns:minmax(340px,400px) minmax(0,1fr);column-gap:24px;
+    grid-template-areas:"head head" "inputs verdict" "inputs table" "inputs charts" "notes notes"}
+  .head{grid-area:head} #verdict{grid-area:verdict} #inputs{grid-area:inputs;align-self:start}
+  #table{grid-area:table} #charts{grid-area:charts} #notes{grid-area:notes}
+}
+@media (max-width:420px){
+  .head h1{font-size:28px}
+  .v-head{font-size:25px}
+  .v-nums .big{font-size:36px}
+}
+</style>
+
+<div class="bar" id="bar" aria-live="polite">
+  <div class="bar-cell"><span class="dot esp"></span><span class="bar-k esp-t">ESP</span><b id="bar-esp">–</b><span class="u" id="bar-u1"></span></div>
+  <div class="bar-cell"><span class="dot pcp"></span><span class="bar-k pcp-t">PCP</span><b id="bar-pcp">–</b></div>
+  <div class="bar-delta" id="bar-d">–</div>
+</div>
+
+<main class="layout">
+  <header class="head">
+    <h1>Combustible ESP vs PCP · v2</h1>
+    <p>Consumo del generador que alimenta cada sistema de levantamiento artificial para el mismo pozo. Cambia los datos y los resultados se recalculan al instante.</p>
+    <div class="presets" id="presets" role="group" aria-label="Escenarios de partida"></div>
+  </header>
+
+  <section id="verdict" class="verdict" aria-live="polite">
+    <div class="v-kicker">Resultado con estos datos</div>
+    <div class="v-head" id="v-head">–</div>
+    <div class="v-nums" id="v-nums"></div>
+    <div class="chips" id="warn"></div>
+  </section>
+
+  <section id="inputs" aria-label="Datos de entrada"></section>
+
+  <section id="table" class="card">
+    <h2>Comparativa detallada</h2>
+    <p class="sub" id="tbl-sub"></p>
+    <div class="tbl" id="tbl"></div>
+  </section>
+
+  <section id="charts">
+    <div class="card" id="card-sweep">
+      <h2>Cómo cambia el consumo</h2>
+      <div class="sw-top">
+        <div class="seg" id="seg-sweep" role="group" aria-label="Variable del eje horizontal">
+          <button type="button" data-v="q">Caudal</button>
+          <button type="button" data-v="dl">Nivel dinámico</button>
+        </div>
+      </div>
+      <div class="readout" id="sw-read"></div>
+      <div id="sweep"></div>
+      <p class="cap" id="sw-cap"></p>
+    </div>
+    <div class="card">
+      <h2>A dónde va la energía del combustible</h2>
+      <p class="sub">El ancho de cada barra es proporcional al combustible que consume ese sistema.</p>
+      <div id="ebars"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+  </section>
+
+  <section id="notes" class="card notes">
+    <h2>Supuestos del modelo</h2>
+    <ul>
+      <li>Caso por defecto: pozo real con diluyente, tomado del software de diseño de equipos. El escenario "Sin diluyente" usa el diseño del mismo pozo con 8,115 cP en el intake, Pdp 748.9 y PIP 260.5 psi, potencia al eje de 85.17 hp y motor de 88.45 %. Presión neta = Pdp 704.9 − PIP 260.3 = 444.6 psi (TDH 1,064 ft, con gas en la mezcla). Potencia al eje de la ESP = 49.48 hp (bomba 43.85 + sello 1.72 + separador de gas 3.90), no 49 kW: equivale a 36.9 kW. Con motor 87.52 %, cable 1.1 %, transformador 98 % y variador 99.5 % la potencia del sistema da 43.7 kW, igual al "System Power" de la pestaña Controller (43.71 kW). La eficiencia del variador es la que cierra ese valor, no un dato del software.</li>
+      <li>PCP equivalente: mismo pozo, misma presión neta y mismo trabajo hidráulico. Solo cambian las eficiencias, que son supuestos de ejemplo (bomba 55 %, cabezal y sarta 88 %, motor 91 %, variador 96 %). No incluye fricción de las varillas con el fluido ni el torque de arranque, que con 1,077 cP pueden ser relevantes. Reemplázalos con los datos del fabricante de la PCP.</li>
+      <li>Presión que debe aportar la bomba, en el modo "Por nivel dinámico": presión de cabeza + 0.433 × gravedad específica de la mezcla × nivel dinámico + fricción en la tubería. La fricción se ingresa como porcentaje de la columna o se calcula con el diámetro interno de la tubería, el caudal y la viscosidad (flujo laminar bajo Re 2,100 y tubería lisa sobre ese valor, de la bomba a superficie). Con crudo viscoso conviene usar el cálculo, porque el porcentaje típico de 4 % subestima la fricción.</li>
+      <li>Potencia hidráulica = caudal × presión × 1.7×10⁻⁵ hp. Es la misma para ESP y PCP; solo cambia cuánta energía hace falta para entregarla.</li>
+      <li>ESP: la eficiencia de la bomba cae en forma parabólica al alejarse del caudal BEP. Se descuenta 10 % por cada década de viscosidad y 0.4 % por cada 1 % de gas libre. La viscosidad no tiene tope de ingreso. El factor de viscosidad tiene piso de 0.40, que se alcanza a 10⁶ cP.</li>
+      <li>PCP: la eficiencia total de la bomba (incluye el deslizamiento) se mantiene con el caudal; la viscosidad y el gas la afectan menos que a la ESP.</li>
+      <li>Generador: combustible = consumo en vacío + consumo proporcional a la carga. El consumo en vacío es 23 % (diésel) o 18 % (gas) del consumo a plena carga. Con dimensionamiento automático se elige el siguiente tamaño comercial para la carga objetivo.</li>
+      <li>Equivalencia combustible a energía: por defecto 37.65 kWh por galón de diésel (poder calorífico inferior) y 293.07 kWh por MMBTU de gas. Puedes cambiarla en "Generador y combustible".</li>
+      <li>Los valores de eficiencia y el precio del combustible son de ejemplo. Reemplázalos con las curvas de tus bombas, la hoja de datos del generador y tu precio de contrato.</li>
+      <li>No incluye arranques, armónicos, caída de tensión ni degradación de la bomba con el tiempo.</li>
+    </ul>
+  </section>
+</main>
+
+<script>
+(function(){
+'use strict';
+var $=function(s,r){return (r||document).querySelector(s)};
+var fmt=function(n,d){d=d||0;return isFinite(n)?n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}):'–'};
+var clamp=function(v,a,b){return Math.min(b,Math.max(a,v))};
+
+var STD=[30,45,60,75,100,125,150,200,250,300,350,400,500,600,750,800,1000,1250,1500,2000,2500,3000];
+var FUELS={
+  diesel:{label:'Diésel',unit:'gal',kwhPer:37.65,co2:10.18,idle:0.233,eff:33.5,price:2.80,priceUnit:'$/gal'},
+  gas:{label:'Gas natural',unit:'MMBTU',kwhPer:293.07,co2:53.06,idle:0.18,eff:37,price:3.50,priceUnit:'$/MMBTU'}
+};
+var DEF={q:240,bsw:5,api:7.9,dl:730,pd:1877,pwh:120,fric:4,fricMode:'pct',tubId:4.892,viscTubPct:100,visc:1158,gas:8.1,
+  presMode:'design',pip:193.5,pdp:703.9,qpump:321.3,espMode:'design',esp_bhp:38.21,tdh:1226,esp_stg:37,
+  esp_eb:50,esp_qbep:1000,esp_mot:87.02,esp_cab:1.07,esp_vsd:99.5,esp_trf:98,
+  pcp_pump:55,pcp_drv:88,pcp_mot:91,pcp_vsd:96,pcp_trf:99,
+  espFluid:'act',pcpFluid:'act',pcpMode:'torque',pcp_rpm:110,pcp_ev:85,pcp_rod:1,pcp_tlim:800,pcp_muf:0.25,pcp_B:1.92,pcp_tint:110,pcp_tsurf:90,tvdp:1373,
+  fuel:'diesel',kwhPer:37.65,sizing:'auto',target:75,gen_eff:33.5,aux:0,price:2.80,gen_esp:150,gen_pcp:100};
+var MB={presMode:'level',espMode:'model',fricMode:'pct',fric:4,tubId:2.441,esp_mot:85,esp_cab:3,esp_vsd:96,esp_trf:97,pcp_pump:62,pcpMode:'eff'};
+var PRESETS=[
+  {id:'real',label:'Con diluyente (diseño)',v:{q:240,bsw:5,api:7.9,dl:730,pd:1877,pwh:120,visc:1158,gas:8.1,presMode:'design',pip:193.5,pdp:703.9,qpump:321.3,tdh:1226,espMode:'design',esp_bhp:38.21,esp_mot:87.02,esp_cab:1.07,esp_vsd:99.5,esp_trf:98,pcp_pump:55,fricMode:'pct',tubId:4.892,pcpMode:'torque',pcp_B:1.92}},
+  {id:'sindil',label:'Sin diluyente (diseño)',v:{q:240,bsw:5,api:7.9,dl:730,pd:1877,pwh:120,visc:8738,gas:8.36,presMode:'design',pip:193.5,pdp:740.4,qpump:256.3,tdh:1290,espMode:'design',esp_bhp:56.04,esp_mot:87.73,esp_cab:1.13,esp_vsd:99.5,esp_trf:98,pcp_pump:55,fricMode:'pct',tubId:4.892,pcpMode:'torque',pcp_B:1.5}},
+  {id:'ref',label:'Referencia',v:Object.assign({},MB,{q:900,bsw:55,api:18,dl:4200,pd:5500,pwh:100,visc:40,gas:8,esp_qbep:1000,esp_eb:50,pcp_pump:62})},
+  {id:'pesado',label:'Crudo pesado, poco caudal',v:Object.assign({},MB,{q:350,bsw:35,api:14,dl:3800,pd:5000,pwh:80,visc:600,gas:3,esp_qbep:500,esp_eb:42,pcp_pump:60})},
+  {id:'alto',label:'Alto caudal, crudo liviano',v:Object.assign({},MB,{q:3000,bsw:80,api:28,dl:5500,pd:8000,pwh:150,visc:3,gas:4,esp_qbep:3200,esp_eb:62,pcp_pump:55})},
+  {id:'gas',label:'Profundo con gas',v:Object.assign({},MB,{q:1200,bsw:50,api:22,dl:7500,pd:9000,pwh:120,visc:10,gas:20,esp_qbep:1300,esp_eb:52,pcp_pump:58})}
+];
+var SE,SP,S=Object.assign({},DEF), activePreset='real', sweepVar='q', hoverI=null;
+
+var GROUPS=[
+ {id:'well',title:'Pozo y fluido',open:true,fields:[
+  {k:'q',label:'Caudal total',unit:'bfpd',min:50,max:5000,step:10},
+  {k:'bsw',label:'Corte de agua (BSW)',unit:'%',min:0,max:98,step:1},
+  {k:'api',label:'Gravedad API',unit:'°API',min:8,max:40,step:0.5},
+  {k:'pd',label:'Profundidad de la bomba (MD)',unit:'ft',min:1000,max:14000,step:1},
+  {k:'pwh',label:'Presión de cabeza',unit:'psi',min:0,max:600,step:1},
+  {k:'pip',label:'Presión en el intake (PIP)',unit:'psi',min:0,max:5000,step:0.1,show:function(){return S.presMode==='design'}},
+  {k:'pdp',label:'Presión en la descarga (Pdp)',unit:'psi',min:0,max:8000,step:0.1,show:function(){return S.presMode==='design'}},
+  {k:'qpump',label:'Caudal en la bomba (promedio intake y descarga)',unit:'bpd',min:50,max:8000,step:0.1,show:function(){return S.presMode==='design'}},
+  {k:'tdh',label:'Altura dinámica total de la ESP (TDH)',unit:'ft',min:0,max:20000,step:1,show:function(){return S.presMode==='design'}},
+  {k:'dl',label:'Nivel dinámico',unit:'ft',min:500,max:12000,step:10,show:function(){return S.presMode==='level'}},
+  {k:'fric',label:'Fricción en tubería',unit:'% col.',min:0,max:200,step:0.5,show:function(){return S.presMode==='level'&&S.fricMode==='pct'}},
+  {k:'tubId',label:'Diámetro interno de la tubería',unit:'in',min:1,max:7,step:0.001,show:function(){return S.presMode==='level'&&S.fricMode==='calc'}},
+  {k:'viscTubPct',label:'Viscosidad promedio en la tubería (% de la del intake)',unit:'%',min:10,max:150,step:5,show:function(){return S.presMode==='level'&&S.fricMode==='calc'}},
+  {k:'visc',label:'Viscosidad en el intake',unit:'cP',min:1,max:100000,step:1,log:true,noMax:true},
+  {k:'gas',label:'Gas libre en la succión',unit:'%',min:0,max:60,step:0.1}]},
+ {id:'gen',title:'Generador y combustible',open:true,sub:'',fields:[
+  {k:'target',label:'Carga objetivo del generador',unit:'%',min:50,max:95,step:1,show:function(){return S.sizing==='auto'}},
+  {k:'gen_esp',label:'Generador nominal para ESP',unit:'kW',min:30,max:3000,step:10,show:function(){return S.sizing==='manual'}},
+  {k:'gen_pcp',label:'Generador nominal para PCP',unit:'kW',min:30,max:3000,step:10,show:function(){return S.sizing==='manual'}},
+  {k:'kwhPer',label:'Energía del combustible (poder calorífico)',unit:function(){return 'kWh/'+FUELS[S.fuel].unit},min:10,max:400,step:0.05},
+  {k:'gen_eff',label:'Eficiencia a plena carga',unit:'%',min:25,max:45,step:0.5},
+  {k:'aux',label:'Otras cargas en el generador',unit:'kW',min:0,max:500,step:5},
+  {k:'price',label:'Precio del combustible',unit:function(){return FUELS[S.fuel].priceUnit},min:0.1,max:20,step:0.05}]},
+ {id:'esp',title:'Sistema ESP',sub:'BEP y eficiencias',fields:[
+  {k:'esp_bhp',label:'Potencia al eje de diseño (bomba + sello + separador)',unit:'hp',min:1,max:2000,step:0.01,show:function(){return S.espMode==='design'}},
+  {k:'esp_qbep',label:'Caudal en el BEP de la bomba',unit:'bfpd',min:100,max:8000,step:50,show:function(){return S.espMode==='model'}},
+  {k:'esp_eb',label:'Eficiencia de la bomba en el BEP',unit:'%',min:25,max:75,step:1,show:function(){return S.espMode==='model'}},
+  {k:'esp_stg',label:'Etapas de la bomba',unit:'',min:1,max:600,step:1,show:function(){return S.espMode==='design'}},
+  {k:'esp_mot',label:'Eficiencia del motor',unit:'%',min:70,max:95,step:0.01},
+  {k:'esp_cab',label:'Pérdida en el cable',unit:'%',min:0,max:10,step:0.1},
+  {k:'esp_vsd',label:'Eficiencia del variador',unit:'%',min:90,max:100,step:0.1},
+  {k:'esp_trf',label:'Eficiencia del transformador',unit:'%',min:90,max:100,step:0.5}]},
+ {id:'pcp',title:'Sistema PCP',sub:'eficiencias',fields:[
+  {k:'pcp_rpm',label:'Velocidad de la sarta',unit:'rpm',min:30,max:300,step:1,show:function(){return pcpOn()}},
+  {k:'pcp_rod',label:'Diámetro de las varillas',unit:'in',min:0.75,max:1.5,step:0.125,show:function(){return pcpOn()}},
+  {k:'pcp_tlim',label:'Límite de torque de la sarta (verificar con el fabricante)',unit:'lbf·ft',min:200,max:2000,step:10,show:function(){return pcpOn()}},
+  {k:'pcp_ev',label:'Eficiencia volumétrica de la bomba',unit:'%',min:50,max:98,step:1,show:function(){return pcpOn()}},
+  {k:'pcp_muf',label:'Coeficiente de fricción varilla–tubería',unit:'',min:0.05,max:0.6,step:0.01,show:function(){return pcpOn()}},
+  {k:'pcp_B',label:'Pendiente viscosidad–temperatura (Walther)',unit:'',min:0.8,max:3,step:0.01,show:function(){return pcpOn()}},
+  {k:'pcp_tint',label:'Temperatura del fluido en la bomba',unit:'°F',min:60,max:300,step:1,show:function(){return pcpOn()}},
+  {k:'pcp_tsurf',label:'Temperatura del fluido en superficie',unit:'°F',min:40,max:200,step:1,show:function(){return pcpOn()}},
+  {k:'tvdp',label:'Profundidad vertical de la bomba (TVD)',unit:'ft',min:500,max:15000,step:0.1,show:function(){return pcpOn()}},
+  {k:'pcp_pump',label:'Eficiencia total de la bomba',unit:'%',min:30,max:75,step:1,show:function(){return !pcpOn()}},
+  {k:'pcp_drv',label:'Cabezal, correas y sarta',unit:'%',min:70,max:98,step:1},
+  {k:'pcp_mot',label:'Eficiencia del motor',unit:'%',min:80,max:96,step:1},
+  {k:'pcp_vsd',label:'Eficiencia del variador',unit:'%',min:90,max:99,step:0.5},
+  {k:'pcp_trf',label:'Eficiencia del transformador',unit:'%',min:90,max:100,step:0.5}]}
+];
+var WELL_KEYS=['presMode','pip','pdp','qpump','espMode','esp_bhp','q','bsw','api','dl','pd','pwh','fric','tubId','viscTubPct','visc','gas','esp_qbep','esp_eb','pcp_pump','pcpMode','pcp_rpm','pcp_rod','pcp_B','tvdp'];
+
+/* ---------- modelo ---------- */
+/* trayectoria del diseño: profundidad medida y vertical (ft) */
+var TRAJ_MD=[0,293.7,383.5,440.8,525.0,620.0,716.0,807.0,898.0,991.0,1082,1174,1265,1357,1447,1538,1630,1721];
+var TRAJ_TVD=[0,293.5,382.6,439.1,521.2,612.4,701.9,783.3,861.6,939.1,1011,1079,1138,1190,1236,1276,1311,1339];
+function fluidTxt(x){return fmt(x.visc,0)+' cP en el intake'}
+function pcpOn(){return S.pcpMode==='torque'&&S.presMode==='design'}
+function lerp1(xs,ys,x){
+  if(x<=xs[0])return ys[0]; var n=xs.length-1; if(x>=xs[n])return ys[n];
+  var i=0; while(xs[i+1]<x)i++; return ys[i]+(ys[i+1]-ys[i])*(x-xs[i])/(xs[i+1]-xs[i]);
+}
+/* Torque de la PCP: hidráulico + fricción de bomba + viscoso de la sarta + contacto varilla-tubería */
+function pcpTorque(s,sg){
+  var FT=0.3048, PSI=6894.757, Lm=s.pd, tvp=s.tvdp, i, n=400;
+  var md=[],tv=[];
+  for(i=0;i<TRAJ_MD.length;i++) if(TRAJ_MD[i]<Lm-1){md.push(TRAJ_MD[i]);tv.push(TRAJ_TVD[i])}
+  md.push(Lm); tv.push(tvp);
+  var mid=[],inc=[];
+  for(i=0;i<md.length-1;i++){
+    var c=Math.min(1,Math.max(0,(tv[i+1]-tv[i])/(md[i+1]-md[i])));
+    inc.push(Math.acos(c)); mid.push((md[i]+md[i+1])/2);
+  }
+  var Q=s.qpump*0.158987/86400, Dt=s.tubId*0.0254, rod=s.pcp_rod*0.0254;
+  var rpm=s.pcp_rpm, om=rpm*2*Math.PI/60, ri=rod/2, ro=Dt/2;
+  var Bw=s.pcp_B, Ar=Math.log10(Math.log10(s.visc+0.7))+Bw*Math.log10(s.pcp_tint+459.67);
+  var ds=Lm/(n-1)*FT, sp=[],incs=[],mu=[];
+  for(i=0;i<n;i++){
+    var m=Lm*i/(n-1), v=lerp1(md,tv,m);
+    var T=s.pcp_tsurf+(s.pcp_tint-s.pcp_tsurf)*v/tvp;
+    sp.push(m); incs.push(lerp1(mid,inc,m));
+    mu.push(Math.max(0.5,Math.pow(10,Math.pow(10,Ar-Bw*Math.log10(T+459.67)))-0.7)/1000);
+  }
+  var v=Q/(Math.PI/4*(Dt*Dt-rod*rod)), h=ro-ri, dfr=0, tv_=0, Tvp=0;
+  for(i=0;i<n;i++){
+    dfr+=12*mu[i]*v/(h*h)*ds;
+    tv_+=4*Math.PI*mu[i]*om*ri*ri*ro*ro/(ro*ro-ri*ri)*ds;
+  }
+  var dP=(0.433*sg*tvp+s.pwh-s.pip)*PSI+dfr;
+  var Vr=Q/(s.pcp_ev/100*rpm/60);
+  var Th=dP*Vr/(2*Math.PI), Tpf=0.25*Th;
+  var w=35.8*s.pcp_rod*s.pcp_rod, Dr=2*0.0254, Tb=dP*Math.PI/4*Dr*Dr;
+  var kmin=1.5*Math.PI/180/30.5, Ten=new Array(n), Nl=new Array(n);
+  Ten[n-1]=Tb; Nl[n-1]=0;
+  for(i=n-2;i>=0;i--){
+    var a=i===0?(incs[1]-incs[0])/((sp[1]-sp[0])*FT):(incs[i+1]-incs[i-1])/((sp[i+1]-sp[i-1])*FT);
+    var kap=Math.max(Math.abs(a),kmin);
+    Nl[i]=Math.abs(w*Math.sin(incs[i]))+Ten[i+1]*kap;
+    Ten[i]=Ten[i+1]+w*Math.cos(incs[i])*ds;
+  }
+  var Tc=0, sq=0;
+  for(i=0;i<n;i++){Tc+=s.pcp_muf*Nl[i]*0.0165*ds; sq+=Nl[i]*Nl[i]}
+  var Tt=Th+Tpf+tv_+Tc, lbf=Tt/1.3558;
+  return {dP:dP/PSI,dPfric:dfr/PSI,Th:Th/1.3558,Tpf:Tpf/1.3558,Tvisc:tv_/1.3558,Tcont:Tc/1.3558,
+    lbf:lbf,util:lbf/s.pcp_tlim,Pmech:Tt*om/1000,rpm:rpm,Nrms:Math.sqrt(sq/n),Ten0:Ten[0]/1000};
+}
+function sysGen(P,s,f,manual){
+  var Pt=P+s.aux, rated;
+  if(s.sizing==='auto'){
+    var need=Pt/(s.target/100);
+    rated=STD.find(function(g){return g>=need});
+    if(!rated) rated=Math.ceil(need/500)*500;
+  } else rated=manual;
+  var eff=s.gen_eff/100;
+  var fth=rated*f.idle/eff+(1-f.idle)*Pt/eff;
+  return {rated:rated,load:Pt/rated,fth:fth,perDay:fth/f.kwhPer*24};
+}
+function finish(s,f,hyd,shaft,X,manual){
+  var g=sysGen(X,s,f,manual);
+  var oil=Math.max(1e-6,s.q*(1-s.bsw/100));
+  var perDay=g.perDay;
+  return {elec:X,rated:g.rated,load:g.load,fth:g.fth,perDay:perDay,perMonth:perDay*30,perYear:perDay*365,
+    costM:perDay*30*s.price,costY:perDay*365*s.price,perBblF:perDay/s.q,perBblO:perDay/oil,
+    kwhBbl:X*24/s.q,co2:perDay*365*f.co2/1000,etaE:hyd/X,etaF:hyd/g.fth,
+    seg:{useful:hyd,pump:shaft-hyd,sys:X-shaft,aux:s.aux,gen:g.fth-(X+s.aux)}};
+}
+/* fricción en la tubería de producción (de la bomba a superficie): laminar con Re < 2100, tubería lisa sobre ese valor */
+function tubFric(s,sg){
+  var Dm=s.tubId*0.0254, Qm=s.q*0.158987/86400, v=Qm/(Math.PI*Dm*Dm/4), rho=sg*1000;
+  var mu=Math.max(1e-6,s.visc*s.viscTubPct/100/1000);
+  var Re=rho*v*Dm/mu, ff=Re<2100?64/Math.max(Re,1e-9):0.3164/Math.pow(Re,0.25);
+  return {psi:ff*(s.pd*0.3048/Dm)*rho*v*v/2/6894.757,Re:Re};
+}
+/* fluido por sistema: 'act' usa los datos de entrada; 'con' o 'sin' usan los casos de diseño con y sin diluyente */
+var FLUID_KEYS=['visc','pip','pdp','qpump','esp_bhp','esp_mot','esp_cab','esp_hz','esp_amps','flop','pcp_B','tdh','gas'];
+function effS(s,sys){
+  var k=s[sys+'Fluid'];
+  if(!k||k==='act'||s.presMode!=='design') return s;
+  var pr=PRESETS.filter(function(x){return x.id===(k==='con'?'real':'sindil')})[0].v, o=Object.assign({},s);
+  FLUID_KEYS.forEach(function(key){if(pr[key]!==undefined)o[key]=pr[key]});
+  return o;
+}
+function calc(s){
+  var sE=effS(s,'esp'), sP=effS(s,'pcp'), R=calcOne(sE);
+  if(sP===sE) return R;
+  var Rp=calcOne(sP);
+  R.pcp=Rp.pcp; R.pcpT=Rp.pcpT; R.chP=Rp.chP; R.hydP=Rp.hyd; R.dpP=Rp.dp;
+  return R;
+}
+function calcOne(s){
+  var f=Object.assign({},FUELS[s.fuel],{kwhPer:s.kwhPer});
+  var so=141.5/(131.5+s.api), sg=(s.bsw/100)*1.02+(1-s.bsw/100)*so;
+  var design=s.presMode==='design', colPsi, fricPsi, dp, qh;
+  if(design){dp=s.pdp-s.pip; colPsi=dp; fricPsi=NaN; qh=s.qpump}
+  else{
+    colPsi=0.433*sg*s.dl;
+    fricPsi=s.fricMode==='calc'?tubFric(s,sg).psi:colPsi*s.fric/100;
+    dp=s.pwh+colPsi+fricPsi; qh=s.q;
+  }
+  var hyd=qh*dp*1.7008e-5*0.7457;
+  var lv=Math.log10(Math.max(1,s.visc));
+  var x=s.q/s.esp_qbep, par=Math.max(0.25,1-0.9*(x-1)*(x-1));
+  var ep=(s.esp_eb/100)*par*Math.max(0.4,1-0.10*lv)*Math.max(0.4,1-0.004*s.gas);
+  var eS=hyd/ep;
+  if(s.espMode==='design'){eS=s.esp_bhp*0.7457; ep=hyd/eS}
+  var eM=eS/(s.esp_mot/100), eC=eM*(1+s.esp_cab/100), eV=eC/(s.esp_vsd/100), eX=eV/(s.esp_trf/100);
+  var pp=(s.pcp_pump/100)*Math.max(0.5,1-0.02*lv)*Math.max(0.5,1-0.003*s.gas);
+  var pT=pcpOn()?pcpTorque(s,sg):null;
+  var pS=pT?pT.Pmech:hyd/pp, pD=pS/(s.pcp_drv/100), pM=pD/(s.pcp_mot/100), pV=pM/(s.pcp_vsd/100), pX=pV/(s.pcp_trf/100);
+  return {f:f,sg:sg,dp:dp,fricPsi:fricPsi,hyd:hyd,x:x,ep:ep,design:design,
+    esp:finish(s,f,hyd,eS,eX,s.gen_esp), pcp:finish(s,f,hyd,pS,pX,s.gen_pcp), pcpT:pT};
+}
+
+/* ---------- entradas ---------- */
+var fieldMap={};
+function toPos(f,v){return f.log?1000*Math.log(v/f.min)/Math.log(f.max/f.min):v}
+function lim(f,v){return f.noMax?Math.max(f.min,v):clamp(v,f.min,f.max)}
+function makeField(f){
+  var el=document.createElement('div'); el.className='field'; el.dataset.k=f.k;
+  el.innerHTML='<label for="n-'+f.k+'">'+f.label+'</label>'+
+    '<div class="num"><input id="n-'+f.k+'" type="number" inputmode="decimal" min="'+f.min+'"'+(f.noMax?'':' max="'+f.max+'"')+' step="'+f.step+'"><span class="u"></span></div>'+
+    '<input class="rng" id="r-'+f.k+'" type="range" aria-label="'+f.label+'">';
+  var n=el.querySelector('input[type=number]'), r=el.querySelector('input[type=range]');
+  if(f.log){r.min=0;r.max=1000;r.step=1}else{r.min=f.min;r.max=f.max;r.step=f.step}
+  fieldMap[f.k]={f:f,el:el,n:n,r:r,u:el.querySelector('.u')};
+  r.addEventListener('input',function(){
+    var raw=parseFloat(r.value), v=f.log?Math.round(f.min*Math.pow(f.max/f.min,raw/1000)):raw;
+    S[f.k]=lim(f,v); n.value=S[f.k]; onEdit(f.k);
+  });
+  n.addEventListener('input',function(){
+    var v=parseFloat(n.value);
+    if(isFinite(v)){S[f.k]=lim(f,v); r.value=toPos(f,S[f.k]); onEdit(f.k)}
+  });
+  n.addEventListener('change',function(){n.value=S[f.k]});
+  return el;
+}
+function syncFields(){
+  Object.keys(fieldMap).forEach(function(k){
+    var m=fieldMap[k], f=m.f;
+    m.n.value=S[k]; m.r.value=toPos(f,S[k]);
+    m.u.textContent=typeof f.unit==='function'?f.unit():f.unit;
+    m.el.hidden=f.show?!f.show():false;
+  });
+  document.querySelectorAll('#seg-fuel button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.v===S.fuel))});
+  document.querySelectorAll('#seg-size button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.v===S.sizing))});
+  document.querySelectorAll('#seg-pres button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.v===S.presMode))});
+  ['esp','pcp'].forEach(function(sys){
+    document.querySelectorAll('#seg-'+sys+'F button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.v===S[sys+'Fluid']))});
+    var rw=$('#row-'+sys+'F'); if(rw) rw.hidden=S.presMode!=='design';
+  });
+  document.querySelectorAll('#seg-pcp button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.v===S.pcpMode))});
+  document.querySelectorAll('#seg-esp button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.v===S.espMode))});
+  var rf=$('#row-fric'); if(rf) rf.hidden=S.presMode!=='level';
+  var cs=$('#card-sweep'); if(cs) cs.hidden=(S.presMode==='design'||S.espMode==='design');
+  document.querySelectorAll('#seg-fric button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.v===S.fricMode))});
+  document.querySelectorAll('#presets .chip').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.v===activePreset))});
+  document.querySelectorAll('#seg-sweep button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.v===sweepVar))});
+}
+function onEdit(k){
+  if(WELL_KEYS.indexOf(k)>=0&&activePreset){activePreset=null;document.querySelectorAll('#presets .chip').forEach(function(b){b.setAttribute('aria-pressed','false')})}
+  update();
+}
+function buildInputs(){
+  var root=$('#inputs');
+  GROUPS.forEach(function(g){
+    var d=document.createElement('details'); d.className='grp'; if(g.open)d.open=true;
+    d.innerHTML='<summary><span>'+g.title+'</span><span class="sub">'+(g.sub||'')+'</span></summary><div class="grp-body"></div>';
+    var body=d.querySelector('.grp-body');
+    if(g.id==='gen'){
+      body.insertAdjacentHTML('beforeend',
+        '<div class="ctl-row"><span class="ctl-l">Combustible</span><div class="seg" id="seg-fuel" role="group" aria-label="Combustible"><button type="button" data-v="diesel">Diésel</button><button type="button" data-v="gas">Gas natural</button></div></div>'+
+        '<div class="ctl-row"><span class="ctl-l">Tamaño del generador</span><div class="seg" id="seg-size" role="group" aria-label="Tamaño del generador"><button type="button" data-v="auto">Automático</button><button type="button" data-v="manual">Manual</button></div></div>');
+    }
+    if(g.id==='esp'){
+      body.insertAdjacentHTML('beforeend','<div class="ctl-row"><span class="ctl-l">Eficiencia de la bomba</span><div class="seg" id="seg-esp" role="group" aria-label="Eficiencia de la bomba ESP"><button type="button" data-v="design">Potencia del diseño</button><button type="button" data-v="model">Modelo con BEP</button></div></div>');
+    }
+    if(g.id==='esp'||g.id==='pcp'){
+      body.insertAdjacentHTML('beforeend','<div class="ctl-row" id="row-'+g.id+'F"><span class="ctl-l">Fluido de la '+g.id.toUpperCase()+'</span><div class="seg" id="seg-'+g.id+'F" role="group" aria-label="Fluido de la '+g.id.toUpperCase()+'"><button type="button" data-v="act">Escenario activo</button><button type="button" data-v="con">Con diluyente</button><button type="button" data-v="sin">Sin diluyente</button></div></div>');
+    }
+    if(g.id==='pcp'){
+      body.insertAdjacentHTML('beforeend','<div class="ctl-row"><span class="ctl-l">Potencia de la PCP</span><div class="seg" id="seg-pcp" role="group" aria-label="Potencia de la PCP"><button type="button" data-v="torque">Modelo de torque</button><button type="button" data-v="eff">Eficiencia supuesta</button></div></div>');
+    }
+    g.fields.forEach(function(f){
+      if(g.id==='well'&&f.k==='pip'){
+        body.insertAdjacentHTML('beforeend','<div class="ctl-row"><span class="ctl-l">Presión neta de la bomba</span><div class="seg" id="seg-pres" role="group" aria-label="Presión neta de la bomba"><button type="button" data-v="design">Presiones del diseño</button><button type="button" data-v="level">Por nivel dinámico</button></div></div>');
+      }
+      if(g.id==='well'&&f.k==='fric'){
+        body.insertAdjacentHTML('beforeend','<div class="ctl-row" id="row-fric"><span class="ctl-l">Cálculo de la fricción</span><div class="seg" id="seg-fric" role="group" aria-label="Cálculo de la fricción"><button type="button" data-v="pct">Porcentaje</button><button type="button" data-v="calc">Calculada</button></div></div>');
+      }
+      body.appendChild(makeField(f));
+    });
+    root.appendChild(d);
+  });
+  var act=document.createElement('div'); act.className='actions';
+  act.innerHTML='<button type="button" class="btn pri" id="btn-copy">Copiar resumen</button><button type="button" class="btn" id="btn-reset">Restablecer</button>';
+  root.appendChild(act);
+  var ta=document.createElement('textarea'); ta.id='copy-box'; ta.readOnly=true; ta.hidden=true; root.appendChild(ta);
+
+  $('#seg-fuel').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b)return;
+    S.fuel=b.dataset.v; S.gen_eff=FUELS[S.fuel].eff; S.price=FUELS[S.fuel].price; S.kwhPer=FUELS[S.fuel].kwhPer; syncFields(); update();
+  });
+  $('#seg-pres').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b)return;
+    S.presMode=b.dataset.v; syncFields(); update();
+  });
+  ['esp','pcp'].forEach(function(sys){
+    $('#seg-'+sys+'F').addEventListener('click',function(e){
+      var b=e.target.closest('button'); if(!b)return;
+      S[sys+'Fluid']=b.dataset.v; syncFields(); update();
+    });
+  });
+  $('#seg-pcp').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b)return;
+    S.pcpMode=b.dataset.v; syncFields(); update();
+  });
+  $('#seg-esp').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b)return;
+    S.espMode=b.dataset.v; syncFields(); update();
+  });
+  $('#seg-fric').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b)return;
+    S.fricMode=b.dataset.v; syncFields(); update();
+  });
+  $('#seg-size').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b)return;
+    S.sizing=b.dataset.v; syncFields(); update();
+  });
+  $('#btn-reset').addEventListener('click',function(){
+    S=Object.assign({},DEF); activePreset='real'; syncFields(); update();
+  });
+  $('#btn-copy').addEventListener('click',copySummary);
+}
+function buildPresets(){
+  var host=$('#presets');
+  PRESETS.forEach(function(p){
+    var b=document.createElement('button'); b.type='button'; b.className='chip'; b.dataset.v=p.id; b.textContent=p.label;
+    b.addEventListener('click',function(){Object.assign(S,p.v); activePreset=p.id; syncFields(); update()});
+    host.appendChild(b);
+  });
+}
+
+/* ---------- salida ---------- */
+function pctTxt(v){if(!isFinite(v))return '–';var s=v<0?'−':(v>0?'+':'');return s+fmt(Math.abs(v),0)+'%'}
+function render(){
+  SE=effS(S,'esp'); SP=effS(S,'pcp');
+  var R=calc(S), f=R.f, e=R.esp, p=R.pcp, U=f.unit;
+  var lowSys=e.perDay<=p.perDay?'ESP':'PCP';
+  var hi=Math.max(e.perDay,p.perDay), lo=Math.min(e.perDay,p.perDay), diff=hi-lo, pct=hi>0?diff/hi*100:0;
+  var cls=lowSys==='ESP'?'esp-t':'pcp-t', other=lowSys==='ESP'?'PCP':'ESP';
+
+  // barra fija
+  $('#bar-esp').textContent=fmt(e.perDay,e.perDay<100?1:0);
+  $('#bar-pcp').textContent=fmt(p.perDay,p.perDay<100?1:0);
+  $('#bar-u1').textContent=U+'/día';
+  $('#bar-d').textContent=pct<1?'≈ igual':(lowSys+' '+pctTxt(-pct));
+
+  // veredicto
+  if(pct<1){
+    $('#v-head').innerHTML='ESP y PCP consumen <span>prácticamente lo mismo</span>';
+    $('#v-nums').innerHTML='<div><span class="big">'+fmt(e.perDay,0)+'</span><span class="l">'+U+'/día cada uno</span></div>';
+  } else {
+    $('#v-head').innerHTML='<span class="'+cls+'">'+lowSys+'</span> consume '+fmt(pct,0)+'% menos combustible que '+other;
+    var save=diff*365*S.price, co2=(diff*365*f.co2)/1000;
+    $('#v-nums').innerHTML=
+      '<div><span class="big">'+fmt(diff,diff<100?1:0)+'</span><span class="l">'+U+'/día menos</span></div>'+
+      '<div><span class="mid">$'+fmt(save,0)+'</span><span class="l">al año</span></div>'+
+      '<div><span class="mid">'+fmt(co2,0)+' t</span><span class="l">de CO₂ al año</span></div>';
+  }
+  var W=[];
+  if(S.q>2000) W.push('PCP: el caudal pasa de 2,000 bfpd, que es el rango típico de esta tecnología.');
+  if(S.pd>6500) W.push('PCP: bomba a más de 6,500 ft, donde el torque y la sarta suelen limitar.');
+  if(R.dp<=0) W.push('La presión de descarga es menor que la del intake: revisa los datos de presión.');
+  if(S.gas>30) W.push('PCP: gas libre superior a 30 % puede dañar el elastómero.');
+  if(S.gas>25) W.push('ESP: gas libre superior a 25 % exige separador o manejador de gas.');
+  if(!R.design&&S.fricMode==='pct'){
+    var est=tubFric(S,R.sg).psi;
+    if(est>50&&est>2*R.fricPsi) W.push('Con '+fmt(S.visc,0)+' cP la fricción en la tubería de '+fmt(S.tubId,3)+' in ronda '+fmt(est,0)+' psi, contra '+fmt(R.fricPsi,0)+' psi con el porcentaje ingresado. Cambia a "Calculada" en Pozo y fluido.');
+  }
+  if(S.visc>3000) W.push('Viscosidad sobre 3,000 cP: el modelo extrapola la corrección. Usa la curva de la bomba corregida por el fabricante.');
+  if(S.espMode==='model'&&(R.x<0.7||R.x>1.2)) W.push('ESP: opera al '+fmt(R.x*100,0)+'% de su caudal BEP. El rango recomendado es 70 a 120 %.');
+  if(S.presMode==='level'&&S.dl>S.pd) W.push('El nivel dinámico quedó por debajo de la bomba: no hay sumergencia.');
+  [['ESP',e],['PCP',p]].forEach(function(a){
+    if(a[1].load>1) W.push(a[0]+': generador sobrecargado al '+fmt(a[1].load*100,0)+'%.');
+    else if(a[1].load<0.4) W.push(a[0]+': el generador trabaja al '+fmt(a[1].load*100,0)+'% de carga y gasta más por kWh.');
+  });
+  if(R.pcpT){
+    if(R.pcpT.util>1) W.push('PCP: el torque calculado ('+fmt(R.pcpT.lbf,0)+' lbf·ft) supera el límite de la sarta ('+fmt(S.pcp_tlim,0)+'). Aumenta el diámetro de varilla o baja la viscosidad.');
+    else if(R.pcpT.util>0.8) W.push('PCP: el torque llega al '+fmt(R.pcpT.util*100,0)+'% del límite de la sarta. Margen estrecho.');
+  } else if(S.pcpMode==='torque'&&S.presMode!=='design') W.push('PCP: el modelo de torque usa la trayectoria del diseño y solo aplica con "Presiones del diseño". Se usa la eficiencia supuesta.');
+  $('#warn').innerHTML=W.map(function(w){return '<div class="warn"><span aria-hidden="true">▲</span><span>'+w+'</span></div>'}).join('');
+
+  // tabla
+  $('#tbl-sub').textContent='Trabajo hidráulico requerido: '+fmt(R.hyd,2)+' kW ('+fmt(R.hyd/0.7457,1)+' hp) con '+fmt(R.dp,0)+' psi de presión neta'+(R.design?' (descarga menos intake).':', de los cuales '+fmt(R.fricPsi,0)+' psi son fricción en la tubería.')+(S.espMode==='design'?' La ESP usa la potencia al eje del diseño ('+fmt(S.esp_bhp*0.7457,1)+' kW), que equivale a una eficiencia de '+fmt(R.ep*100,1)+'% de la hidráulica al eje.':'')+(R.pcpT?' PCP con modelo de torque: '+fmt(R.pcpT.lbf,0)+' lbf·ft a '+fmt(R.pcpT.rpm,0)+' rpm ('+fmt(R.pcpT.util*100,0)+'% del límite), '+fmt(R.pcpT.Pmech,2)+' kW al eje y '+fmt(R.pcpT.dP,0)+' psi netos en la bomba.':'')+(SE!==SP?' Fluido: ESP con '+fluidTxt(SE)+', PCP con '+fluidTxt(SP)+'. El trabajo hidráulico mostrado es el de la ESP.':'')+' Δ es PCP respecto a ESP.';
+  var rows=[
+    ['Potencia eléctrica','kW',function(r){return r.elec},1,'pct',0],
+    ['Eficiencia eléctrica a hidráulica','%',function(r){return r.etaE*100},1,'pts',0],
+    ['Generador nominal','kW',function(r){return r.rated},0,null,0],
+    ['Carga del generador','%',function(r){return r.load*100},0,null,0],
+    ['Combustible por día',U+'/día',function(r){return r.perDay},1,'pct',1],
+    ['Combustible por mes (30 d)',U,function(r){return r.perMonth},0,'pct',0],
+    ['Combustible por año',U,function(r){return r.perYear},0,'pct',0],
+    ['Costo por mes','$',function(r){return r.costM},0,'pct',0],
+    ['Costo por año','$',function(r){return r.costY},0,'pct',1],
+    [U+' por bbl de fluido',U,function(r){return r.perBblF},3,'pct',0],
+    [U+' por bbl de petróleo',U,function(r){return r.perBblO},2,'pct',0],
+    ['Electricidad por bbl de fluido','kWh',function(r){return r.kwhBbl},2,'pct',0],
+    ['Eficiencia combustible a hidráulica','%',function(r){return r.etaF*100},1,'pts',0],
+    ['CO₂ por año','t',function(r){return r.co2},0,'pct',0]
+  ];
+  var h='<table><thead><tr><th></th><th class="esp-t">ESP</th><th class="pcp-t">PCP</th><th>Δ</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    var a=r[2](e), b=r[2](p), d='';
+    if(r[4]==='pct') d=a>0?pctTxt((b/a-1)*100):'–';
+    else if(r[4]==='pts') d=(b-a>=0?'+':'−')+fmt(Math.abs(b-a),1)+' pts';
+    h+='<tr'+(r[5]?' class="key"':'')+'><td>'+r[0]+' <small>'+r[1]+'</small></td><td class="n">'+fmt(a,r[3])+'</td><td class="n">'+fmt(b,r[3])+'</td><td class="n">'+d+'</td></tr>';
+  });
+  $('#tbl').innerHTML=h+'</tbody></table>';
+
+  renderBars(R); drawSweep(R);
+}
+
+function renderBars(R){
+  var max=Math.max(R.esp.fth,R.pcp.fth);
+  var cats=[['useful','Hidráulica útil'],['pump','Bomba'],['sys','Motor, cable, cabezal y variador'],['aux','Otras cargas'],['gen','Pérdidas del generador']];
+  var cl={useful:'s-useful',pump:'s-pump',sys:'s-sys',aux:'s-oth',gen:'s-gen'};
+  function bar(name,r,col){
+    var w=r.fth/max*100, seg='';
+    cats.forEach(function(c){
+      var v=r.seg[c[0]]; if(v<=0)return;
+      var share=v/r.fth*100;
+      seg+='<div class="seg-b '+cl[c[0]]+'" style="width:'+(share)+'%" title="'+c[1]+': '+fmt(v,1)+' kW">'+(share*w/100>=9?fmt(share,0)+'%':'')+'</div>';
+    });
+    return '<div class="eb" style="--sys:'+col+'"><div class="eb-h"><b style="color:'+col+'">'+name+'</b><span>'+fmt(r.fth,0)+' kW en combustible · llega al fluido '+fmt(r.etaF*100,0)+'%</span></div>'+
+      '<div class="eb-bar" style="width:'+w+'%">'+seg+'</div></div>';
+  }
+  $('#ebars').innerHTML=bar('ESP',R.esp,'var(--esp)')+bar('PCP',R.pcp,'var(--pcp)');
+  var lg='';
+  cats.forEach(function(c){
+    if(c[0]==='aux'&&S.aux<=0)return;
+    var bg=c[0]==='useful'?'linear-gradient(90deg,var(--esp) 50%,var(--pcp) 50%)':c[0]==='pump'?'linear-gradient(90deg,color-mix(in srgb,var(--esp) 38%,var(--surface)) 50%,color-mix(in srgb,var(--pcp) 38%,var(--surface)) 50%)':'var(--'+(c[0]==='sys'?'seg-elec':c[0]==='gen'?'seg-gen':'seg-oth')+')';
+    lg+='<span><i style="background:'+bg+'"></i>'+c[1]+'</span>';
+  });
+  $('#legend').innerHTML=lg;
+}
+
+/* ---------- curva de sensibilidad ---------- */
+function niceScale(min,max,n){
+  var span=Math.max(1e-9,max-min), s0=span/n, mag=Math.pow(10,Math.floor(Math.log10(s0))), nm=s0/mag;
+  var step=(nm<1.5?1:nm<3?2:nm<7?5:10)*mag, ticks=[], t=Math.ceil(min/step-1e-9)*step;
+  for(;t<=max+1e-9;t+=step) ticks.push(+t.toPrecision(12));
+  return {ticks:ticks,step:step};
+}
+function sweepData(){
+  var N=60, xs=[], x0,x1;
+  if(sweepVar==='q'){x1=Math.max(2.2*S.q,1.6*S.esp_qbep); x0=Math.max(50,x1*0.12)}
+  else {x1=Math.max(S.pd,S.dl*1.2,2000); x0=500}
+  for(var i=0;i<N;i++) xs.push(x0+(x1-x0)*i/(N-1));
+  var e=[],p=[];
+  xs.forEach(function(x){var s=Object.assign({},S); s[sweepVar]=x; var r=calc(s); e.push(r.esp.perDay); p.push(r.pcp.perDay)});
+  return {xs:xs,e:e,p:p,x0:x0,x1:x1,N:N};
+}
+function drawSweep(R){
+  var host=$('#sweep'), U=R.f.unit, W=Math.max(280,host.clientWidth||320), H=W<520?250:300;
+  var m={l:46,r:36,t:12,b:38}, d=sweepData();
+  var ymax=Math.max.apply(null,d.e.concat(d.p))*1.08, ys=niceScale(0,ymax,4), yT=Math.max(ys.ticks[ys.ticks.length-1],ymax);
+  var iw=W-m.l-m.r, ih=H-m.t-m.b;
+  var sx=function(x){return m.l+(x-d.x0)/(d.x1-d.x0)*iw}, sy=function(y){return m.t+ih-y/yT*ih};
+  var xs=niceScale(d.x0,d.x1,W<520?4:6);
+  var g='<g class="ax">';
+  ys.ticks.forEach(function(t){g+='<line class="gl" x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+sy(t)+'" y2="'+sy(t)+'"/><text x="'+(m.l-6)+'" y="'+(sy(t)+4)+'" text-anchor="end">'+fmt(t,t<10&&t%1?1:0)+'</text>'});
+  xs.ticks.forEach(function(t){g+='<text x="'+sx(t)+'" y="'+(H-m.b+15)+'" text-anchor="middle">'+fmt(t,0)+'</text>'});
+  g+='<text x="'+(m.l+iw/2)+'" y="'+(H-4)+'" text-anchor="middle">'+(sweepVar==='q'?'Caudal total (bfpd)':'Nivel dinámico (ft)')+'</text>';
+  g+='<text x="4" y="'+(m.t+2)+'" text-anchor="start">'+U+'/día</text></g>';
+  var path=function(a){return a.map(function(v,i){return (i?'L':'M')+sx(d.xs[i]).toFixed(1)+' '+sy(v).toFixed(1)}).join('')};
+  g+='<path class="ln-esp" d="'+path(d.e)+'"/><path class="ln-pcp" d="'+path(d.p)+'"/>';
+  // posición actual
+  var cx=sx(S[sweepVar]);
+  g+='<line class="cur" x1="'+cx+'" x2="'+cx+'" y1="'+m.t+'" y2="'+(m.t+ih)+'"/>';
+  g+='<circle class="pt-esp" cx="'+cx+'" cy="'+sy(R.esp.perDay)+'" r="5"/><circle class="pt-pcp" cx="'+cx+'" cy="'+sy(R.pcp.perDay)+'" r="5"/>';
+  // etiquetas directas
+  var ye=sy(d.e[d.N-1]), yp=sy(d.p[d.N-1]);
+  if(Math.abs(ye-yp)<14){var mid=(ye+yp)/2; if(ye<=yp){ye=mid-7;yp=mid+7}else{ye=mid+7;yp=mid-7}}
+  g+='<text class="tx-esp" x="'+(W-m.r+5)+'" y="'+(ye+4)+'">ESP</text><text class="tx-pcp" x="'+(W-m.r+5)+'" y="'+(yp+4)+'">PCP</text>';
+  // hover
+  var rx=S[sweepVar], re=R.esp.perDay, rp=R.pcp.perDay;
+  if(hoverI!==null){
+    var hx=sx(d.xs[hoverI]);
+    g+='<line class="hv" x1="'+hx+'" x2="'+hx+'" y1="'+m.t+'" y2="'+(m.t+ih)+'"/><circle class="pt-esp" cx="'+hx+'" cy="'+sy(d.e[hoverI])+'" r="4"/><circle class="pt-pcp" cx="'+hx+'" cy="'+sy(d.p[hoverI])+'" r="4"/>';
+    rx=d.xs[hoverI]; re=d.e[hoverI]; rp=d.p[hoverI];
+  }
+  host.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Combustible diario de ESP y PCP según '+(sweepVar==='q'?'el caudal':'el nivel dinámico')+'">'+g+'</svg>';
+  host._geom={m:m,iw:iw,d:d,W:W};
+  var xl=sweepVar==='q'?'Caudal':'Nivel';
+  $('#sw-read').innerHTML='<span>'+(hoverI!==null?'':'Actual · ')+xl+' <b>'+fmt(rx,0)+'</b> '+(sweepVar==='q'?'bfpd':'ft')+'</span>'+
+    '<span><i class="dot esp"></i>ESP <b>'+fmt(re,1)+'</b></span><span><i class="dot pcp"></i>PCP <b>'+fmt(rp,1)+'</b></span><span>'+U+'/día</span>';
+  var best=d.e.map(function(v,i){return v<d.p[i]?'E':'P'});
+  var cross=false; for(var i=1;i<best.length;i++) if(best[i]!==best[i-1]) cross=true;
+  $('#sw-cap').textContent=(cross?'Las curvas se cruzan: el sistema más económico cambia dentro de este rango. ':'')+
+    'Los escalones aparecen cuando el generador pasa al siguiente tamaño comercial.'+(sweepVar==='q'?' La ESP es más eficiente cerca de su caudal BEP ('+fmt(S.esp_qbep,0)+' bfpd).':'');
+}
+function hoverMove(ev){
+  var host=$('#sweep'), gm=host._geom; if(!gm)return;
+  var rect=host.getBoundingClientRect(), px=(ev.clientX-rect.left)*(gm.W/rect.width);
+  var t=(px-gm.m.l)/gm.iw; var i=Math.round(clamp(t,0,1)*(gm.d.N-1));
+  if(i!==hoverI){hoverI=i; drawSweep(calc(S))}
+}
+function hoverEnd(){if(hoverI!==null){hoverI=null; drawSweep(calc(S))}}
+
+/* ---------- resumen para copiar ---------- */
+function copySummary(){
+  var R=calc(S), f=R.f, U=f.unit, e=R.esp, p=R.pcp;
+  var t='Comparativa de combustible ESP vs PCP\n'+
+   'Pozo: '+fmt(S.q,0)+' bfpd, BSW '+S.bsw+'%, '+S.api+' °API, '+(R.design?'presiones intake '+fmt(S.pip,1)+' y descarga '+fmt(S.pdp,1)+' psi':'nivel dinámico '+fmt(S.dl,0)+' ft')+', presión de cabeza '+S.pwh+' psi\n'+
+   'Combustible: '+f.label+' a $'+fmt(S.price,2)+'/'+U+'\n'+
+   'Trabajo hidráulico: '+fmt(R.hyd,1)+' kW\n\n'+
+   'ESP: '+fmt(e.elec,1)+' kW eléctricos, generador de '+fmt(e.rated,0)+' kW al '+fmt(e.load*100,0)+'%, '+fmt(e.perDay,1)+' '+U+'/día, $'+fmt(e.costY,0)+'/año\n'+
+   'PCP: '+fmt(p.elec,1)+' kW eléctricos, generador de '+fmt(p.rated,0)+' kW al '+fmt(p.load*100,0)+'%, '+fmt(p.perDay,1)+' '+U+'/día, $'+fmt(p.costY,0)+'/año\n'+
+   'Diferencia: '+fmt(Math.abs(e.perDay-p.perDay),1)+' '+U+'/día a favor de '+(e.perDay<=p.perDay?'ESP':'PCP');
+  var btn=$('#btn-copy'), box=$('#copy-box');
+  function fallback(){box.hidden=false; box.value=t; box.focus(); box.select()}
+  try{
+    navigator.clipboard.writeText(t).then(function(){btn.textContent='Copiado'; setTimeout(function(){btn.textContent='Copiar resumen'},1600)},fallback);
+  }catch(err){fallback()}
+}
+
+/* ---------- arranque ---------- */
+var pending=false;
+function update(){
+  if(pending)return; pending=true;
+  requestAnimationFrame(function(){pending=false; render()});
+}
+buildPresets(); buildInputs(); syncFields();
+$('#seg-sweep').addEventListener('click',function(e){
+  var b=e.target.closest('button'); if(!b)return; sweepVar=b.dataset.v; hoverI=null; syncFields(); update();
+});
+var sw=$('#sweep');
+sw.addEventListener('pointermove',hoverMove);
+sw.addEventListener('pointerleave',hoverEnd);
+sw.addEventListener('pointercancel',hoverEnd);
+render();
+if(window.ResizeObserver){new ResizeObserver(function(){drawSweep(calc(S))}).observe(sw)}
+else window.addEventListener('resize',function(){drawSweep(calc(S))});
+})();
+</script>
